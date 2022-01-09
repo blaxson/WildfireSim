@@ -7,3 +7,8 @@ Senior Project that simulates the possibilities of a wild fire spreading
   - Weather 
   - Fuel
   - (https://www.nps.gov/articles/wildland-fire-behavior.htm)
+
+# To install gdal on linux
+```
+sudo apt-get install gdal-bin proj-bin libgdal-dev libproj-dev
+```
