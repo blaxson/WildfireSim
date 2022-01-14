@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# any example .tif files
+*.tif
+*.tiff
+
 # C extensions
 *.so
 
