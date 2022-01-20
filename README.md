@@ -12,3 +12,8 @@ Senior Project that simulates the possibilities of a wild fire spreading
 ```
 sudo apt-get install gdal-bin proj-bin libgdal-dev libproj-dev
 ```
+
+# Current library dependencies
+```
+pip3 install requests
+```
