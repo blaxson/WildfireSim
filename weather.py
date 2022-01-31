@@ -3,6 +3,7 @@ import datetime
 import json
 import numpy as np
 
+''' custom error '''
 class WeatherAPIError(Exception):
     def __init__(self, message):
         self.message = message
@@ -25,17 +26,16 @@ class Weather:
         self.precipitationType = precType 
     
     def __repr__(self):
-        return f"time: {self.time},\t temperature: {self.temperature},\t windSpeed: {self.windSpeed},\t " + \
-               f"windGust: {self.windGust},\t windDirection: {self.windDirection},\t cloudCover: {self.cloudCover},\t " + \
-               f"precipitationProbability: {self.precipitationProbability}"
+        return self.__str__()
 
     def __str__(self):
-        return f"time: {self.time},\t temperature: {self.temperature},\t windSpeed: {self.windSpeed},\t " + \
-               f"windGust: {self.windGust},\t windDirection: {self.windDirection},\t cloudCover: {self.cloudCover},\t " + \
+        return f"time: {self.time},\t temperature: {self.temperature:.2f},\t windSpeed: {self.windSpeed:.2f},\t " + \
+               f"windGust: {self.windGust:.2f},\t windDirection: {self.windDirection:.2f},\t cloudCover: {self.cloudCover:.1f},\t " + \
                f"precipitationProbability: {self.precipitationProbability}"
 
 ''' gets the weather data of the given latitude and longitude coordinates, 
-    returns np array of weather objects '''
+    returns np array of weather objects, where each index holds an hourly 
+    weather forecast '''
 def getWeatherData(apikey, latitude, longitude):
     # latitude ranges b/w -90 and 90, longitude b/w -180 and 180
     if latitude < -90 or latitude > 90 or longitude < -180 or longitude > 180:
@@ -75,8 +75,3 @@ def getWeatherData(apikey, latitude, longitude):
         weather_points.append(weather)
 
     return np.asarray(weather_points)
-    '''
-    r.status_code
-    r.headers
-    r.url
-    '''
