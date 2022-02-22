@@ -35,9 +35,8 @@ def getElevationData(filename):
     dX = info[1]
     # dY represents the change in meters for 1 change in pixel in the y direction
     dY = info[-1]
-
     # if the pixel size is not 1 or 10 meters or if the DEM is not projected to UTM
-    if dX not in [1.0, 10.0] and not projected:
+    if dX not in [1.0, 5.0, 10.0] and not projected:
         raise FileNotSupportedError("file not supported\n\tDEM should be in UTM coordinate format (meters)")
  
     # read in the raster data and get elevation matrix from it
@@ -46,7 +45,7 @@ def getElevationData(filename):
     cols = ras_data.RasterXSize
     elevationData = band1.ReadAsArray(0,0,cols,rows)
 
-    return dX, dY, elevationData
+    return abs(dX), abs(dY), elevationData
 
     '''
     other useful attributes:

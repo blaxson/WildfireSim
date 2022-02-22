@@ -1,12 +1,13 @@
-import elevation, weather, mapData # local modules
+import elevation, weather, sim # local modules
 import os, sys
 import matplotlib 
 import matplotlib.pyplot as plt
 import numpy as np
 import random
+import time
 
-def printError(*msg):
-    print(*msg, file=sys.stderr)
+def printError(msg):
+    print("WildfireSim: " + msg, file=sys.stderr)
 
 ''' retrieves weather data from weather module and handles all errors '''
 def getWeatherData(latStr, lonStr):
@@ -29,7 +30,8 @@ def getWeatherData(latStr, lonStr):
         sys.exit(1)
     return weather_data
 
-''' retrieves elevation data from module, converts to map data and handles all errors '''
+''' retrieves elevation data from module, converts to map data and handles all errors 
+    returns np array of map'''
 def getMapData(mapFile):
     ''' get elevation data '''
     try:
@@ -44,30 +46,73 @@ def getMapData(mapFile):
         printError(f"{mapFile}: could not open image file")
         sys.exit(1)
 
+    y, x = elevation_data.shape
     ''' convert elevation data into map data '''
-    simMap = []
-    for elevation_line in elevation_data:
-        for elevation_point in elevation_line:
-            point = mapData.MapPoint(elevation_point)
-            simMap.append(point)
+    mapPoints = []
+    for i_y in range(0, y):
+        line = []
+        for i_x in range(0, x):
+            point = sim.MapPoint(elevation_data[i_y, i_x], i_x, i_y)
+            line.append(point)
+        mapPoints.append(line)
+
     # TODO: temporarily returns elevation_data (for matplot)
-    return np.asarray(simMap), dX, dY, elevation_data
+    return np.asarray(mapPoints), dX, dY, elevation_data
 
 def main():
     if len(sys.argv) < 4:
         print("usage: python3 main.py DEM.tif latitude longitude")
         # TODO: uncomment sys.exit(1)
     
-    weather_data = getWeatherData(sys.argv[2], sys.argv[3])
-    simMap, dX, dY, elevation_data = getMapData(sys.argv[1])
-    print(simMap)
+    #weather_data = getWeatherData(sys.argv[2], sys.argv[3])
+    #for data in weather_data:
+    #    print(f"{data.windSpeed}, \t{data.windDirection}")
+    
+    start = time.time()
+    mapPoints, dX, dY, elevation_data = getMapData(sys.argv[1])
+    print(mapPoints.shape)
+    end = time.time()
+    print(f"took {end-start} seconds to getMapData")
 
+    start = time.time()
+    fireSim = sim.Simulator(mapPoints, dX, dY)
+    fireSim.startFire(.25, .25, 10)
+    print(f"\npoints in fire queue: {len(fireSim.fireQueue)}")
+    print([(point.x, point.y) for point in fireSim.fireQueue])
+    end = time.time()
+    print(f"took {end-start} seconds to start fire")
+
+    print(dX, dY)
+    print()
+    weather_data = []
+    weather_data.append(weather.Weather("0", 54, 10, 193))
+
+    start = time.time()
+    fireSim.growFire(weather_data[0])
+    print(f"\npoints in fire queue: {len(fireSim.fireQueue)}")
+    print([(point.x, point.y) for point in fireSim.fireQueue])
+    end = time.time()
+    print(f"took {end-start} seconds to run first iteration")
+
+    start = time.time()
+    fireSim.growFire(weather_data[0])
+    print(f"\npoints in fire queue: {len(fireSim.fireQueue)}")
+    print([(point.x, point.y) for point in fireSim.fireQueue])
+    end = time.time()
+    print(f"took {end-start} seconds to run second iteration")
+
+
+    start = time.time()
+    fireSim.growFire(weather_data[0])
+    print(f"\npoints in fire queue: {len(fireSim.fireQueue)}")
+    print([(point.x, point.y) for point in fireSim.fireQueue])
+    end = time.time()
+    print(f"took {end-start} seconds to run third iteration")
+
+
+    '''
     # TODO: temporary plotting of elevation data
     # remove once graphics are stable
-    print(dX)
-    print(dY)
-    print(len(elevation_data))
-    print(len(elevation_data[0]))
     print(elevation_data)
     fig = plt.figure(figsize = (12, 8))
     ax = fig.add_subplot(111)
@@ -77,6 +122,7 @@ def main():
     cbar = plt.colorbar()
     plt.gca().set_aspect('equal', adjustable='box')
     plt.show()
+    '''
 
 if __name__ == '__main__':
     main()
