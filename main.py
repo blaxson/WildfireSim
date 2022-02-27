@@ -27,7 +27,6 @@ def printProgressBar (iteration, total, fill='█', printEnd="\r"):
 
 ''' retrieves weather data from weather module and handles all errors '''
 def getWeatherData(latStr, lonStr):
-    os.environ['WEATHER_ACCESS'] = 'H2TfW0sqrQG96bRwsszmg2Hb6gEh61As' # TODO: remove setting env var 
     # get environment variable
     apikey = os.getenv('WEATHER_ACCESS')
     if apikey is None:

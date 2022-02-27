@@ -181,7 +181,7 @@ class Simulator:
         for y in range(yStart, yEnd):
             for x in range(xStart, xEnd):
                 point = self.map[y, x]
-                point.fire.ignite() # add graphics update here
+                point.fire.ignite() # TODO: add graphics update here
                 bounds.append(point)
                 if self.fireArea.get(point.key()) is None:
                     self.fireArea[point.key()] = point
