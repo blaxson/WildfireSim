@@ -36,5 +36,4 @@ pip3 install gdal
 ## Other library dependencies
 ```
 pip3 install requests
-pip3 install tqdm
 ```
