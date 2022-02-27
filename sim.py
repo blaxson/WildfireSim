@@ -325,12 +325,12 @@ class Simulator:
             for x in range(minX, maxX):
                 p = (x, y)
                 point = self.map[y, x]
-                # add point to fireArea if not alread in it
-                if self.fireArea.get(point.key()) is None:
-                    self.fireArea[point.key()] = point
                 # if point is in bounds of spread and is not already burnt, ignite and add to points
                 if fire.contains_point(p) and point.fire.fireStatus != FireStatus.burnt:
                     points.append(point)
+                    # add point to fireArea if not alread in it
+                    if self.fireArea.get(point.key()) is None:
+                        self.fireArea[point.key()] = point
                     point.fire.ignite() # ignite fire if not already burnt # TODO: add graphics update here
         return points
     
@@ -344,6 +344,7 @@ class Simulator:
         for curr_point in self.firePerimeter:
             fire_points = self.calcGrowthFromPoint(curr_point)
             for point in fire_points:
+                # if not already on fire and is outside of current perimeter
                 if next_area_points.get(point.key()) is None and not self.fireBounds.contains_point((point.x, point.y)):
                     next_area_points[point.key()] = point # add point to dictionary for curr iter
                     next_area.append(point)
