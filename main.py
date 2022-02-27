@@ -1,4 +1,4 @@
-import elevation, weather, sim # local modules
+import elevation, weather, sim, convex_hull# local modules
 import os, sys
 import matplotlib 
 import matplotlib.pyplot as plt
@@ -8,6 +8,22 @@ import time
 
 def printError(msg):
     print("WildfireSim: " + msg, file=sys.stderr)
+
+""" used for printing progress of data initialization, params include:
+    iteration  : current iteration (Int)
+    total      : total iterations (Int)
+    fill       : bar fill character (Str)
+    printEnd   : end character (e.g. "\r", "\r\n") (Str)
+"""
+def printProgressBar (iteration, total, fill='█', printEnd="\r"):
+    percent = ("{0:." + str(1) + "f}").format(100 * (iteration / float(total)))
+    length = 50 # char length of bar
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print(f'\rLoading Map Data: |{bar}| {percent}% Complete', end = printEnd)
+    # Print newline on complete
+    if iteration == total: 
+        print()
 
 ''' retrieves weather data from weather module and handles all errors '''
 def getWeatherData(latStr, lonStr):
@@ -49,66 +65,50 @@ def getMapData(mapFile):
     y, x = elevation_data.shape
     ''' convert elevation data into map data '''
     mapPoints = []
+    printProgressBar(0, y)
     for i_y in range(0, y):
         line = []
         for i_x in range(0, x):
             point = sim.MapPoint(elevation_data[i_y, i_x], i_x, i_y)
             line.append(point)
         mapPoints.append(line)
+        printProgressBar(i_y + 1, y)
 
     # TODO: temporarily returns elevation_data (for matplot)
     return np.asarray(mapPoints), dX, dY, elevation_data
 
+''' formats the fire starting location and its size '''
+def getFireStart(xStr, yStr, rStr):
+    try:
+        xPercent = float(xStr)
+        yPercent = float(yStr)
+        radius = int(rStr)
+        if radius <= 0:
+            raise ValueError
+    except ValueError:
+        printError("xPercent, yPercent must be float between 0.0 - 1.0,\n" + \
+                    "size must be a positive integer")
+        sys.exit(1)
+    return xPercent, yPercent, radius
+
 def main():
-    if len(sys.argv) < 4:
-        print("usage: python3 main.py DEM.tif latitude longitude")
-        # TODO: uncomment sys.exit(1)
+    if len(sys.argv) < 7:
+        print("usage: python3 main.py DEM.tif latitude longitude, xPercent, yPercent, size")
+        print("\twhere xPercent, yPercent = 0.0-1.0 representing the location of fire start on map")
+        print("\tand size is size of fire's radius in meters")
+        sys.exit(1)
     
-    #weather_data = getWeatherData(sys.argv[2], sys.argv[3])
-    #for data in weather_data:
-    #    print(f"{data.windSpeed}, \t{data.windDirection}")
-    
-    start = time.time()
-    mapPoints, dX, dY, elevation_data = getMapData(sys.argv[1])
-    print(mapPoints.shape)
-    end = time.time()
-    print(f"took {end-start} seconds to getMapData")
+    xPercent, yPercent, radius = getFireStart(sys.argv[4], sys.argv[5], sys.argv[6])
+    weather_forecast = getWeatherData(sys.argv[2], sys.argv[3])
+    mapPoints, dX, dY, elevation_data = getMapData(sys.argv[1]) # TODO: remove elevation_data from return val
 
-    start = time.time()
     fireSim = sim.Simulator(mapPoints, dX, dY)
-    fireSim.startFire(.25, .25, 10)
-    print(f"\npoints in fire queue: {len(fireSim.fireQueue)}")
-    print([(point.x, point.y) for point in fireSim.fireQueue])
-    end = time.time()
-    print(f"took {end-start} seconds to start fire")
+    fireSim.startFire(xPercent, yPercent, radius)
 
-    print(dX, dY)
-    print()
-    weather_data = []
-    weather_data.append(weather.Weather("0", 54, 10, 193))
-
-    start = time.time()
-    fireSim.growFire(weather_data[0])
-    print(f"\npoints in fire queue: {len(fireSim.fireQueue)}")
-    print([(point.x, point.y) for point in fireSim.fireQueue])
-    end = time.time()
-    print(f"took {end-start} seconds to run first iteration")
-
-    start = time.time()
-    fireSim.growFire(weather_data[0])
-    print(f"\npoints in fire queue: {len(fireSim.fireQueue)}")
-    print([(point.x, point.y) for point in fireSim.fireQueue])
-    end = time.time()
-    print(f"took {end-start} seconds to run second iteration")
-
-
-    start = time.time()
-    fireSim.growFire(weather_data[0])
-    print(f"\npoints in fire queue: {len(fireSim.fireQueue)}")
-    print([(point.x, point.y) for point in fireSim.fireQueue])
-    end = time.time()
-    print(f"took {end-start} seconds to run third iteration")
-
+    for hour, hourly_weather in enumerate(weather_forecast, start=1):
+        fireSim.growFireFront(hourly_weather)
+        print(f"hour: {hour}, size of fire area: {len(fireSim.fireArea)}")
+        time.sleep(1)
 
     '''
     # TODO: temporary plotting of elevation data

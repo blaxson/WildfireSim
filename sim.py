@@ -1,3 +1,4 @@
+import convex_hull # local module
 import numpy as np
 import enum
 import random # temporary
@@ -118,7 +119,9 @@ class Simulator:
         self.xPointScale = xScale 
         self.yPointScale = yScale
         self.windVector = None # gets set after each iteration of growFire()
-        self.fireQueue = [] 
+        self.firePerimeter = [] 
+        self.fireBounds = None
+        self.fireArea = {} # all points that have caught fire, dictionary for lookup performance
     def __repr__(self):
         return self.__str__()
     def __str__(self):
@@ -150,6 +153,12 @@ class Simulator:
         x = (p2.x - p1.x) * self.xPointScale * 3.28084 # 3.28084 feet per meter
         y = (p2.y - p1.y) * self.yPointScale * 3.28084
         return np.array([x, y])
+    ''' updates the fire bounds with a new Path, given the current firePerimeter '''
+    def updateFireBounds(self):
+        bounds = []
+        for point in self.firePerimeter:
+            bounds.append((point.x, point.y))
+        self.fireBounds = Path(bounds, closed=True)
 
     ''' starts a fire with radius of size size (meters) at dX, dY position as a percentage on map '''
     def startFire(self, xPercent, yPercent, size):
@@ -167,15 +176,17 @@ class Simulator:
         yStart = 0 if yStart < 0 else int(yStart)
         yEnd = self.yBoundary if yEnd > self.yBoundary else int(yEnd)
 
-        # TODO: remove print statements
-        print(self.map.shape)
-        print(xStart, xEnd, yStart, yEnd)
-
+        bounds = []
         # ignite each point in calculated region and add to active fire queue
         for y in range(yStart, yEnd):
             for x in range(xStart, xEnd):
-                self.map[y, x].fire.ignite()
-                self.fireQueue.append(self.map[y, x])
+                point = self.map[y, x]
+                point.fire.ignite() # add graphics update here
+                bounds.append(point)
+                if self.fireArea.get(point.key()) is None:
+                    self.fireArea[point.key()] = point
+        self.firePerimeter = convex_hull.get_perimeter(bounds)
+        self.updateFireBounds()
 
     ''' returns Rothermel's slope factor for surface fire spread. S = 5.275 * P^(-0.3)*(tanTheta)^2 '''
     def slopeFactor(self, p1, p2): # guarenteed to be different p1 and p2
@@ -227,7 +238,8 @@ class Simulator:
         return rate * 60 / 3.28084
 
     ''' given a single point, calculates all the points around it that the fire will spread to;
-        excludes points that are already burnt '''
+        excludes points that are already burnt,
+        ignites points that have not been burned yet '''
     def calcGrowthFromPoint(self, point):
         nRate = neRate = eRate = seRate = 0
         sRate = swRate = wRate = nwRate = 0
@@ -249,9 +261,6 @@ class Simulator:
         if point.x + 1 < self.xBoundary:
             eRate = self.rateOfSpread(point, self.map[point.y, point.x+1])
         
-        # print("N, NE, E, SE, S, SW, W, NW")
-        # print(nRate, neRate, eRate, seRate, sRate, swRate, wRate, nwRate)
-
         # calculate coordinates for perimeter points
         # North
         y = point.y - self.yMetersToPoints(nRate)
@@ -303,8 +312,6 @@ class Simulator:
 
         fireBoundary = [(nX, nY), (neX, neY), (eX, eY), (seX, seY), 
                         (sX, sY), (swX, swY), (wX, wY), (nwX, nwY)]
-        # print("fireBoundary:")
-        # print(fireBoundary)
         fire = Path(fireBoundary, closed=True)
 
         # calculate rectangle overlay of fire polygon; narrows points to parse through
@@ -314,14 +321,36 @@ class Simulator:
         maxX = max(neX, eX, seX) # most eastern point
 
         points = []
-        # print(f"square: ({minX, minY}) to ({maxX, maxY})")
         for y in range(minY, maxY):
             for x in range(minX, maxX):
                 p = (x, y)
-                if fire.contains_point(p) and self.map[y, x].fire.fireStatus != FireStatus.burnt:
-                    points.append(self.map[y, x])
+                point = self.map[y, x]
+                # add point to fireArea if not alread in it
+                if self.fireArea.get(point.key()) is None:
+                    self.fireArea[point.key()] = point
+                # if point is in bounds of spread and is not already burnt, ignite and add to points
+                if fire.contains_point(p) and point.fire.fireStatus != FireStatus.burnt:
+                    points.append(point)
+                    point.fire.ignite() # ignite fire if not already burnt # TODO: add graphics update here
         return points
+    
+    ''' runs single iteration of fire growth, equivalent to one hour of growth;
+        works by iterating through every point in the active fire front (firePerimeter),
+        and creating a new queue for next iteration of fireFront'''
+    def growFireFront(self, weather):
+        self.setWindVector(weather.windSpeed, weather.windDirection)
+        next_area = []
+        next_area_points = {} # use dictionary for O(1) lookups
+        for curr_point in self.firePerimeter:
+            fire_points = self.calcGrowthFromPoint(curr_point)
+            for point in fire_points:
+                if next_area_points.get(point.key()) is None and not self.fireBounds.contains_point((point.x, point.y)):
+                    next_area_points[point.key()] = point # add point to dictionary for curr iter
+                    next_area.append(point)
+        self.firePerimeter = convex_hull.get_perimeter(next_area) # finds new perimeter from all local perimeters
+        self.updateFireBounds()
 
+    ''' TODO: no longer used '''
     ''' runs single iteration of fire growth, equivalent to one hour of growth;
         works by iterating through every point in the active fire queue,
         and creating a new queue for next iteration '''
@@ -329,8 +358,8 @@ class Simulator:
         self.setWindVector(weather.windSpeed, weather.windDirection)
         next_iteration = []
         next_iteration_points = {} # use dictionary for O(1) lookups
-        while len(self.fireQueue) > 0:
-            curr_point = self.fireQueue.pop(0)
+        while len(self.firePerimeter) > 0:
+            curr_point = self.firePerimeter.pop(0)
             # decrement time remaining for current point in fire queue
             curr_point.fire.burn()
             # if fire still burning at point, add back to queue
@@ -349,8 +378,8 @@ class Simulator:
                     next_iteration_points[point.key()] = point # add point to dictionary for current iter
                     next_iteration.append(point)
         
-        # next_iteration becomes new fireQueue
-        self.fireQueue = next_iteration
+        # next_iteration becomes new firePerimeter
+        self.firePerimeter = convex_hull.get_perimeter(next_iteration)
 
 ''' gets the wind vector as a numpy vector given wind speed and direction '''
 def calculateWindVector(speed, direction):
