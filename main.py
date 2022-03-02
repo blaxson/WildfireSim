@@ -101,15 +101,6 @@ def main():
     weather_forecast = getWeatherData(sys.argv[2], sys.argv[3])
     mapPoints, dX, dY, elevation_data = getMapData(sys.argv[1]) # TODO: remove elevation_data from return val
 
-    fireSim = sim.Simulator(mapPoints, dX, dY)
-    fireSim.startFire(xPercent, yPercent, radius)
-
-    for hour, hourly_weather in enumerate(weather_forecast, start=1):
-        fireSim.growFireFront(hourly_weather)
-        print(f"hour: {hour}, size of fire area: {len(fireSim.fireArea)}")
-        time.sleep(1)
-
-    '''
     # TODO: temporary plotting of elevation data
     # remove once graphics are stable
     print(elevation_data)
@@ -121,7 +112,15 @@ def main():
     cbar = plt.colorbar()
     plt.gca().set_aspect('equal', adjustable='box')
     plt.show()
-    '''
+    
+    
+    fireSim = sim.Simulator(mapPoints, dX, dY)
+    fireSim.startFire(xPercent, yPercent, radius)
+
+    for hour, hourly_weather in enumerate(weather_forecast, start=1):
+        fireSim.growFireFront(hourly_weather)
+        print(f"hour: {hour}, \n\tnum points in perimeter: {len(fireSim.firePerimeter)}\n\tsize of fire area: {len(fireSim.fireArea)}")
+        time.sleep(1)
 
 if __name__ == '__main__':
     main()
