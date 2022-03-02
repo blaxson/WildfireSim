@@ -1,16 +1,32 @@
-import elevation, weather, mapData # local modules
+import elevation, weather, sim, convex_hull# local modules
 import os, sys
 import matplotlib 
 import matplotlib.pyplot as plt
 import numpy as np
 import random
+import time
 
-def printError(*msg):
-    print(*msg, file=sys.stderr)
+def printError(msg):
+    print("WildfireSim: " + msg, file=sys.stderr)
+
+""" used for printing progress of data initialization, params include:
+    iteration  : current iteration (Int)
+    total      : total iterations (Int)
+    fill       : bar fill character (Str)
+    printEnd   : end character (e.g. "\r", "\r\n") (Str)
+"""
+def printProgressBar (iteration, total, fill='█', printEnd="\r"):
+    percent = ("{0:." + str(1) + "f}").format(100 * (iteration / float(total)))
+    length = 50 # char length of bar
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print(f'\rLoading Map Data: |{bar}| {percent}% Complete', end = printEnd)
+    # Print newline on complete
+    if iteration == total: 
+        print()
 
 ''' retrieves weather data from weather module and handles all errors '''
 def getWeatherData(latStr, lonStr):
-    os.environ['WEATHER_ACCESS'] = 'H2TfW0sqrQG96bRwsszmg2Hb6gEh61As' # TODO: remove setting env var 
     # get environment variable
     apikey = os.getenv('WEATHER_ACCESS')
     if apikey is None:
@@ -29,7 +45,8 @@ def getWeatherData(latStr, lonStr):
         sys.exit(1)
     return weather_data
 
-''' retrieves elevation data from module, converts to map data and handles all errors '''
+''' retrieves elevation data from module, converts to map data and handles all errors 
+    returns np array of map'''
 def getMapData(mapFile):
     ''' get elevation data '''
     try:
@@ -44,30 +61,48 @@ def getMapData(mapFile):
         printError(f"{mapFile}: could not open image file")
         sys.exit(1)
 
+    y, x = elevation_data.shape
     ''' convert elevation data into map data '''
-    simMap = []
-    for elevation_line in elevation_data:
-        for elevation_point in elevation_line:
-            point = mapData.MapPoint(elevation_point)
-            simMap.append(point)
+    mapPoints = []
+    printProgressBar(0, y)
+    for i_y in range(0, y):
+        line = []
+        for i_x in range(0, x):
+            point = sim.MapPoint(elevation_data[i_y, i_x], i_x, i_y)
+            line.append(point)
+        mapPoints.append(line)
+        printProgressBar(i_y + 1, y)
+
     # TODO: temporarily returns elevation_data (for matplot)
-    return np.asarray(simMap), dX, dY, elevation_data
+    return np.asarray(mapPoints), dX, dY, elevation_data
+
+''' formats the fire starting location and its size '''
+def getFireStart(xStr, yStr, rStr):
+    try:
+        xPercent = float(xStr)
+        yPercent = float(yStr)
+        radius = int(rStr)
+        if radius <= 0:
+            raise ValueError
+    except ValueError:
+        printError("xPercent, yPercent must be float between 0.0 - 1.0,\n" + \
+                    "size must be a positive integer")
+        sys.exit(1)
+    return xPercent, yPercent, radius
 
 def main():
-    if len(sys.argv) < 4:
-        print("usage: python3 main.py DEM.tif latitude longitude")
-        # TODO: uncomment sys.exit(1)
+    if len(sys.argv) < 7:
+        print("usage: python3 main.py DEM.tif latitude longitude, xPercent, yPercent, size")
+        print("\twhere xPercent, yPercent = 0.0-1.0 representing the location of fire start on map")
+        print("\tand size is size of fire's radius in meters")
+        sys.exit(1)
     
-    weather_data = getWeatherData(sys.argv[2], sys.argv[3])
-    simMap, dX, dY, elevation_data = getMapData(sys.argv[1])
-    print(simMap)
+    xPercent, yPercent, radius = getFireStart(sys.argv[4], sys.argv[5], sys.argv[6])
+    weather_forecast = getWeatherData(sys.argv[2], sys.argv[3])
+    mapPoints, dX, dY, elevation_data = getMapData(sys.argv[1]) # TODO: remove elevation_data from return val
 
     # TODO: temporary plotting of elevation data
     # remove once graphics are stable
-    print(dX)
-    print(dY)
-    print(len(elevation_data))
-    print(len(elevation_data[0]))
     print(elevation_data)
     fig = plt.figure(figsize = (12, 8))
     ax = fig.add_subplot(111)
@@ -77,6 +112,15 @@ def main():
     cbar = plt.colorbar()
     plt.gca().set_aspect('equal', adjustable='box')
     plt.show()
+    
+    
+    fireSim = sim.Simulator(mapPoints, dX, dY)
+    fireSim.startFire(xPercent, yPercent, radius)
+
+    for hour, hourly_weather in enumerate(weather_forecast, start=1):
+        fireSim.growFireFront(hourly_weather)
+        print(f"hour: {hour}, \n\tnum points in perimeter: {len(fireSim.firePerimeter)}\n\tsize of fire area: {len(fireSim.fireArea)}")
+        time.sleep(1)
 
 if __name__ == '__main__':
     main()

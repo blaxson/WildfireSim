@@ -6,7 +6,7 @@ import numpy as np
 ''' custom error '''
 class WeatherAPIError(Exception):
     def __init__(self, message):
-        self.message = message
+        self.message = "WeatherAPI: " + str(message)
     
     def __str__(self):
         return self.message
@@ -55,7 +55,14 @@ def getWeatherData(apikey, latitude, longitude):
     }
 
     # make api request
-    r = requests.request("GET", weatherURL, params=querystring)
+    try:
+        r = requests.request("GET", weatherURL, params=querystring)
+    except requests.exceptions.ConnectionError as e:
+        raise WeatherAPIError("Connection Error:\n" + str(e))
+    except requests.exceptions.RequestException as e:
+        raise WeatherAPIError("failure making request to weather API:\n" + str(e))
+    except:
+        raise WeatherAPIError("unknown error occured")
     if r.status_code >= 400:
         raise WeatherAPIError(r.text)
     
