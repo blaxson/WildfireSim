@@ -250,7 +250,7 @@ class Simulator:
                 nwRate = self.rateOfSpread(point, self.map[point.y-1, point.x-1])
             if point.x + 1 < self.xBoundary:
                 neRate = self.rateOfSpread(point, self.map[point.y-1, point.x+1])
-        if point.y - 1 < self.yBoundary:
+        if point.y + 1 < self.yBoundary:
             sRate = self.rateOfSpread(point, self.map[point.y+1, point.x])
             if point.x - 1 >= 0:
                 swRate = self.rateOfSpread(point, self.map[point.y+1, point.x-1])

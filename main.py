@@ -1,10 +1,7 @@
 import elevation, weather, sim, convex_hull# local modules
-import os, sys
-import matplotlib 
-import matplotlib.pyplot as plt
+import sys
 import numpy as np
-import random
-import time
+from graphics import Graphics
 
 def printError(msg):
     print("WildfireSim: " + msg, file=sys.stderr)
@@ -28,7 +25,8 @@ def printProgressBar (iteration, total, fill='█', printEnd="\r"):
 ''' retrieves weather data from weather module and handles all errors '''
 def getWeatherData(latStr, lonStr):
     # get environment variable
-    apikey = os.getenv('WEATHER_ACCESS')
+    #apikey = os.getenv('WEATHER_ACCESS')
+    apikey = "bTwTZqRIM3x7mrUWKUr3lR1uVCPupCor";
     if apikey is None:
         printError("must set 'WEATHER_ACCESS' environment variable with API access key")
         sys.exit(1)
@@ -96,31 +94,15 @@ def main():
         print("\twhere xPercent, yPercent = 0.0-1.0 representing the location of fire start on map")
         print("\tand size is size of fire's radius in meters")
         sys.exit(1)
-    
     xPercent, yPercent, radius = getFireStart(sys.argv[4], sys.argv[5], sys.argv[6])
     weather_forecast = getWeatherData(sys.argv[2], sys.argv[3])
     mapPoints, dX, dY, elevation_data = getMapData(sys.argv[1]) # TODO: remove elevation_data from return val
 
-    # TODO: temporary plotting of elevation data
-    # remove once graphics are stable
-    print(elevation_data)
-    fig = plt.figure(figsize = (12, 8))
-    ax = fig.add_subplot(111)
-    plt.contour(elevation_data, cmap = "viridis", 
-                levels = list(range(0, 4500, 100)))
-    plt.title("Elevation Contours of Mt. Whitney")
-    cbar = plt.colorbar()
-    plt.gca().set_aspect('equal', adjustable='box')
-    plt.show()
-    
-    
     fireSim = sim.Simulator(mapPoints, dX, dY)
     fireSim.startFire(xPercent, yPercent, radius)
-
-    for hour, hourly_weather in enumerate(weather_forecast, start=1):
-        fireSim.growFireFront(hourly_weather)
-        print(f"hour: {hour}, \n\tnum points in perimeter: {len(fireSim.firePerimeter)}\n\tsize of fire area: {len(fireSim.fireArea)}")
-        time.sleep(1)
+    graph = Graphics(elevation_data)
+    graph.fire = fireSim
+    graph.start(weather_forecast)
 
 if __name__ == '__main__':
     main()
