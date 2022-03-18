@@ -1,5 +1,5 @@
 import elevation, weather, sim, convex_hull# local modules
-import sys
+import sys, os
 import numpy as np
 from graphics import Graphics
 
@@ -25,8 +25,7 @@ def printProgressBar (iteration, total, fill='█', printEnd="\r"):
 ''' retrieves weather data from weather module and handles all errors '''
 def getWeatherData(latStr, lonStr):
     # get environment variable
-    #apikey = os.getenv('WEATHER_ACCESS')
-    apikey = "bTwTZqRIM3x7mrUWKUr3lR1uVCPupCor";
+    apikey = os.getenv('WEATHER_ACCESS')
     if apikey is None:
         printError("must set 'WEATHER_ACCESS' environment variable with API access key")
         sys.exit(1)
@@ -96,7 +95,7 @@ def main():
         sys.exit(1)
     xPercent, yPercent, radius = getFireStart(sys.argv[4], sys.argv[5], sys.argv[6])
     weather_forecast = getWeatherData(sys.argv[2], sys.argv[3])
-    mapPoints, dX, dY, elevation_data = getMapData(sys.argv[1]) # TODO: remove elevation_data from return val
+    mapPoints, dX, dY, elevation_data = getMapData(sys.argv[1]) # TODO: remove elevation_data
 
     fireSim = sim.Simulator(mapPoints, dX, dY)
     fireSim.startFire(xPercent, yPercent, radius)
