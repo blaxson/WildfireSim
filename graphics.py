@@ -152,4 +152,4 @@ class Graphics:
         self.timeTracker.after(30000, self.clock)
 
     def end(self):
-        sys.exit()
+        self.tk.destroy()
